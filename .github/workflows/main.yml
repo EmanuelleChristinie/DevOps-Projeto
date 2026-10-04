@@ -35,24 +35,32 @@ jobs:
   # ETAPA DE CD 
   # -------------------------------------------------------------
   deploy-docker:
-    needs: testes # SÓ EXECUTA SE OS TESTES PASSAREM! (Garantia de qualidade)
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  needs: testes
+  runs-on: ubuntu-latest
+  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  permissions:
+    contents: read
+    packages: write
 
-    steps:
-      - name: Baixar o código do repositório
-        uses: actions/checkout@v4
+  steps:
+    - name: Baixar o código do repositório
+      uses: actions/checkout@v4
 
-      - name: Fazer Login no GitHub Container Registry (GHCR)
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Fazer Login no GitHub Container Registry (GHCR)
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Construir e Publicar a imagem Docker
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+
+    - name: Converter nome do repositório para minúsculas
+      run: |
+        echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
+    - name: Construir e Publicar a imagem Docker
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/${{ env.REPO_LOWER }}:latest
