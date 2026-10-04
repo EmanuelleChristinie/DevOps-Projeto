@@ -7,20 +7,16 @@ on:
     branches: [ main ]
 
 jobs:
-  # -------------------------------------------------------------
-  # ETAPA DE CI
-  # -------------------------------------------------------------
   testes:
     runs-on: ubuntu-latest
-
     steps:
       - name: Baixar o código do repositório
         uses: actions/checkout@v4
 
-      - name: Configurar o ambiente Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
       - name: Instalar dependências
         run: |
@@ -29,38 +25,39 @@ jobs:
           pip install pytest
 
       - name: Executar testes automatizados
-        run: pytest
+        run: |
+          pytest
 
-  # -------------------------------------------------------------
-  # ETAPA DE CD 
-  # -------------------------------------------------------------
   deploy-docker:
-  needs: testes
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  permissions:
-    contents: read
-    packages: write
+    needs: testes
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
 
-  steps:
-    - name: Baixar o código do repositório
-      uses: actions/checkout@v4
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
 
-    - name: Fazer Login no GitHub Container Registry (GHCR)
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fazer Login no GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extrair metadados e gerar tag em minúsculas
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: type=raw,value=latest
 
-    - name: Converter nome do repositório para minúsculas
-      run: |
-        echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
-
-    - name: Construir e Publicar a imagem Docker
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ghcr.io/${{ env.REPO_LOWER }}:latest
+      - name: Construir e Publicar a imagem Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
